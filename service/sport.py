@@ -1,13 +1,13 @@
+from functools import reduce
 import pandas as pd
+from utils import TechPocketApi
 
-from techpocket.techpocket_api.techpocket_api import TechPocketApi
 
+class Sport(TechPocketApi):
+    def __init__(self, token):
+        self._token = token
 
-class DataLoader(TechPocketApi):
-    def __init__(self):
-        super(DataLoader, self).__init__()
-
-    def get_sport_scores(self, sport: str, date: str) -> list[dict]:
+    def get_sport_scores(self, sport: str, date: str) -> pd.DataFrame:
         """
         [Parameters]
         ------------
@@ -38,7 +38,29 @@ class DataLoader(TechPocketApi):
                 hit: int (baseball),
                 error: int (baseball)
         """
-        pass
+        res = self._request('sport/scores', self._token, sport=sport, date=date)
+
+        df = pd.DataFrame({
+            'date': [], 'time': [], 'status': [], 'away_name': [], 'away_score': [],
+            'away_box': [], 'home_name': [], 'home_score': [], 'home_box': []
+        })
+
+        if 'games' in res and res['games']:
+
+            for game in res['games']:
+                game['away']['box'] = ', '.join(game['away']['box'])
+                game['home']['box'] = ', '.join(game['home']['box'])
+
+            df = pd.DataFrame(res['games'])
+            df = df[['date', 'time', 'status']]
+
+            away_df = self.flatten_dict(res['games'], 'away', prefix='away_')
+            home_df = self.flatten_dict(res['games'], 'home', prefix='home_')
+
+            df = pd.merge(df, away_df, left_index=True, right_index=True)
+            df = pd.merge(df, home_df, left_index=True, right_index=True).reset_index(drop=True)
+
+        return df
 
     def get_sport_odds(self, sport: str, date: str) -> pd.DataFrame:
         """
@@ -81,7 +103,19 @@ class DataLoader(TechPocketApi):
                 tie_handi：int (soccer, tennis, hockey),
                 tie_normal: int (soccer, tennis, hockey)
         """
-        pass
+        res = self._request('sport/odds', self._token, sport=sport, date=date)
+
+        df = pd.DataFrame(
+            {'date': [], 'time': [], 'lottery_id': [], 'away': [], 'home': []}
+        )
+
+        if 'games' in res and res['games']:
+            odds_df = self.flatten_dict(res['games'], 'odds')
+            df = pd.DataFrame(res['games'])
+            df = df[['date', 'time', 'lottery_id', 'away', 'home']]
+            df = pd.merge(df, odds_df, left_index=True, right_index=True).reset_index(drop=True)
+
+        return df
 
     def get_sport_lineups(self, sport) -> pd.DataFrame:
         """
@@ -116,4 +150,39 @@ class DataLoader(TechPocketApi):
                     pos: str,
                     status: str
         """
-        pass
+        res = self._request('sport/lineups', self._token, sport=sport)
+
+        df = pd.DataFrame(
+            {'date': [], 'time': [], 'away': [], 'home': []}
+        )
+
+        if 'games' in res and res['games']:
+            away_df = self.flatten_dict(res['games'], 'away', prefix='away_')
+            home_df = self.flatten_dict(res['games'], 'away', prefix='home_')
+
+            df = pd.DataFrame(res['games'])
+            df = df[['date', 'time']]
+
+            df = pd.merge(df, away_df, left_index=True, right_index=True)
+            df = pd.merge(df, home_df, left_index=True, right_index=True).reset_index(drop=True)
+
+
+        return df
+
+    @staticmethod
+    def flatten_dict(d: dict, col_name: str, prefix: str = None) -> pd.DataFrame:
+        dfs = []
+
+        for i, game in enumerate(d):
+            if isinstance(game[col_name], dict):
+                df = pd.DataFrame(game[col_name], index=[i])
+            else:
+                df = pd.DataFrame(game[col_name])
+                df.index = [i] * len(df)
+            dfs.append(df)
+
+        res_df = pd.concat(dfs)
+        if prefix:
+            res_df = res_df.add_prefix(prefix)
+
+        return res_df
