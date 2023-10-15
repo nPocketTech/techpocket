@@ -2,15 +2,12 @@
 
 import json
 import time
-import logging
 
 import requests
 
-from .error import UnauthorizedError
-
-
-# from techpocket.service import Sport
-# from techpocket.service import Audio
+from .service.stock import Stock
+from .service.sport import Sport
+from .service.audio import Audio
 
 
 class TechPocket:
@@ -20,9 +17,9 @@ class TechPocket:
     def __init__(self, api_token):
         self._api_token = api_token
         self.api_available()
-        # self.stock = Stock(TechPocket.FREE_TOKEN)
-        # self.sport = Sport(TechPocket.FREE_TOKEN)
-        # self.audio = Audio(TechPocket.FREE_TOKEN)
+        self.stock = Stock(self._request)
+        self.sport = Sport(self._request)
+        self.audio = Audio(self._request)
 
     def api_available(self):
         res = self._request('balance', 0)

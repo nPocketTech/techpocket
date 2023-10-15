@@ -1,13 +1,8 @@
-import pandas as pd
+class Stock:
+    def __init__(self, _request):
+        self._request = _request
 
-from techpocket.error import TechPocketApi
-
-
-class Stock(TechPocketApi):
-    def __init__(self, token):
-        self._token = token
-
-    def get_list(self, key: str) -> pd.DataFrame:
+    def get_list(self, key: str) -> dict:
         '''
         [Parameters]
         ------------
@@ -19,20 +14,15 @@ class Stock(TechPocketApi):
         return: pd.DataFrame
             'ISIN_code', 'industry', 'market', 'name', 'publish_date', 'stock_id', 'type'
         '''
+        res = self._request('stock/list', 0, key=key)
 
-        res = self._request('stock/list', self._token, key=key)
+        if res['status']['code'] == 200:
+            res.pop('status', None)
+            return res
 
-        df = pd.DataFrame(
-            {'ISIN_code': [], 'industry': [], 'market': [],
-             'name': [], 'publish_date': [], 'stock_id': [], 'type': []}
-        )
+        raise Exception(res['status']['msg'])
 
-        if 'data_list' in res and res['data_list']:
-            df = pd.DataFrame(res['data_list'])
-
-        return df
-
-    def get_ticks_realtime(self, stock_id: str) -> pd.DataFrame:
+    def get_ticks_realtime(self, stock_id: str) -> dict:
         '''
         [Parameters]
         ------------
@@ -44,19 +34,15 @@ class Stock(TechPocketApi):
         return: pd.DataFrame
             'time', 'price', 'amount', 'volume'
         '''
+        res = self._request('stock/ticks_realtime', 0, stock_id=stock_id)
 
-        res = self._request('stock/ticks_realtime', self._token, stock_id=stock_id)
+        if res['status']['code'] == 200:
+            res.pop('status', None)
+            return res
 
-        df = pd.DataFrame(
-            {'time': [], 'price': [], 'amount': [], 'volume': []}
-        )
+        raise Exception(res['status']['msg'])
 
-        if 'data_list' in res and res['data_list']:
-            df = pd.DataFrame(res['data']['ticks'])
-
-        return df
-
-    def get_price_realtime(self, stock_list: list) -> pd.DataFrame:
+    def get_price_realtime(self, stock_list: list) -> dict:
         '''
         [Parameters]
         ------------
@@ -69,14 +55,10 @@ class Stock(TechPocketApi):
             'stock_id'
                 'max', 'min', 'open', 'close', 'spread', 'amount', 'volume', 'volume_last'
         '''
+        res = self._request('stock/price_realtime', 0, stock_list=stock_list)
 
-        res = self._request('stock/price_realtime', self._token, stock_list=stock_list)
+        if res['status']['code'] == 200:
+            res.pop('status', None)
+            return res
 
-        df = pd.DataFrame(
-            {'max': [], 'min': [], 'open': [], 'close': [], 'spread': [], 'amount': [], 'volume': [], 'volume_last': []}
-        )
-
-        if 'data_list' in res and res['data_list']:
-            df = pd.DataFrame(res['data_list'])
-
-        return df
+        raise Exception(res['status']['msg'])
