@@ -1,6 +1,6 @@
 import pandas as pd
 
-from utils import TechPocketApi
+from techpocket.error import TechPocketApi
 
 
 class Stock(TechPocketApi):

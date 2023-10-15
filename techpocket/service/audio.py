@@ -1,4 +1,4 @@
-from utils import TechPocketApi
+from techpocket.error import TechPocketApi
 import base64
 
 
