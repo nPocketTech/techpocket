@@ -16,30 +16,21 @@ class TechPocket:
 
     def __init__(self, api_token):
         self._api_token = api_token
-        self.api_available()
+        self.get_balance()
         self.stock = Stock(self._request)
         self.sport = Sport(self._request)
         self.audio = Audio(self._request)
-
-    def api_available(self):
-        res = self._request('balance', 0)
-        if res['status']['code'] != 200:
-            raise Exception(res['status']['msg'])
 
     def get_balance(self) -> int:
         '''
         [Returns]
         ------------
-        return: int balance num
+        balance: int
         '''
+        balance = self._request('balance')['balance']
+        return balance
 
-        res = self._request('balance', 0)
-        if res['status']['code'] == 200:
-            return res['balance']
-
-        raise Exception(res['status']['msg'])
-
-    def _request(self, endpoint: str, request_time: int, **kwargs) -> dict:
+    def _request(self, endpoint: str, request_time: int = 0, **kwargs) -> dict:
         '''
         [Parameters]
         ------------
@@ -49,20 +40,27 @@ class TechPocket:
 
         [Returns]
         ------------
-        return: dict
+        response_dict: dict
         '''
-        response_dict = {'status': {'code': 400, 'msg': 'BadRequest'}, }
 
         url = f'{self.BASE_URL}/{endpoint}'
         kwargs['token'] = self._api_token
         response = requests.post(url, data=kwargs)
 
-        if response.status_code == 200:
+        if response.status_code != 200:
+            if request_time < self.MAX_RETRY:
+                time.sleep(1)
+                response_dict = self._request(endpoint, request_time + 1, **kwargs)
+            else:
+                response_dict = {'status': {'code': 400, 'msg': 'Bad Request'}}
+        else:
             response_dict = json.loads(response.text)
-            if response_dict['status']['code'] == 200:
-                return response_dict
+            if response_dict['status']['code'] != 200 and request_time < self.MAX_RETRY:
+                time.sleep(1)
+                response_dict = self._request(endpoint, request_time + 1, **kwargs)
 
-        if request_time < self.MAX_RETRY:
-            time.sleep(1)
-            response_dict = self._request(endpoint, request_time + 1, **kwargs)
+        if request_time == 0:
+            assert response_dict['status']['code'] == 200, response_dict['status']['msg']
+            del response_dict['status']
+
         return response_dict
