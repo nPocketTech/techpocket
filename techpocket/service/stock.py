@@ -20,8 +20,7 @@ class Stock:
 
         [Returns]
         ------------
-        return: pd.DataFrame
-            'ISIN_code', 'industry', 'market', 'name', 'publish_date', 'stock_id', 'type'
+        data_list: 詳情請上 https://npocket.tech/doc/stock/api#%E8%82%A1%E7%A5%A8%E6%B8%85%E5%96%AE
         '''
 
         self._handle_path(save_to)
@@ -44,8 +43,7 @@ class Stock:
 
         [Returns]
         ------------
-        return: pd.DataFrame
-            'time', 'price', 'amount', 'volume'
+        data: 詳情請上 https://npocket.tech/doc/stock/api#%E5%8D%B3%E6%99%82%E8%B5%B0%E5%8B%A2
         '''
         path_obj = self._handle_path(save_to)
         data = self._request('stock/ticks_realtime', stock_id=stock_id)['data']
@@ -73,9 +71,7 @@ class Stock:
 
         [Returns]
         ------------
-        return: pd.DataFrame
-            'stock_id'
-                'max', 'min', 'open', 'close', 'spread', 'amount', 'volume', 'volume_last'
+        data_list: 詳情請上 https://npocket.tech/doc/stock/api#%E5%8D%B3%E6%99%82%E8%82%A1%E5%83%B9
         '''
         self._handle_path(save_to)
         data_list = self._request('stock/price_realtime', stock_list=stock_list)['data_list']
