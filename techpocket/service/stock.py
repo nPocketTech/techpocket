@@ -1,8 +1,17 @@
+import pathlib
+from pathlib import Path
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+
+
 class Stock:
     def __init__(self, _request):
         self._request = _request
 
-    def get_list(self, key: str) -> dict:
+    def get_list(self, key: str, df_like: bool = False, save_to: str = '') -> dict:
         '''
         [Parameters]
         ------------
@@ -14,15 +23,19 @@ class Stock:
         return: pd.DataFrame
             'ISIN_code', 'industry', 'market', 'name', 'publish_date', 'stock_id', 'type'
         '''
-        res = self._request('stock/list', 0, key=key)
 
-        if res['status']['code'] == 200:
-            res.pop('status', None)
-            return res
+        self._handle_path(save_to)
+        data_list = self._request('stock/list', key=key)['data_list']
 
-        raise Exception(res['status']['msg'])
+        if df_like:
+            data_list = pd.DataFrame(data_list)
+            if save_to:
+                data_list.to_csv(save_to)
 
-    def get_ticks_realtime(self, stock_id: str) -> dict:
+        return data_list
+
+    def get_ticks_realtime(self, stock_id: str, df_like=False, save_to='', plot=False) -> dict or tuple[
+        dict, pd.DataFrame]:
         '''
         [Parameters]
         ------------
@@ -34,15 +47,24 @@ class Stock:
         return: pd.DataFrame
             'time', 'price', 'amount', 'volume'
         '''
-        res = self._request('stock/ticks_realtime', 0, stock_id=stock_id)
+        path_obj = self._handle_path(save_to)
+        data = self._request('stock/ticks_realtime', stock_id=stock_id)['data']
 
-        if res['status']['code'] == 200:
-            res.pop('status', None)
-            return res
+        if df_like:
+            ticks = data.pop('ticks')
+            ticks = pd.DataFrame(ticks)
 
-        raise Exception(res['status']['msg'])
+            if plot:
+                self._plot_ticks_realtime(ticks, path_obj.parent / f'{stock_id}.png')
 
-    def get_price_realtime(self, stock_list: list) -> dict:
+            if save_to:
+                ticks.to_csv(save_to)
+
+            return data, ticks
+
+        return data
+
+    def get_price_realtime(self, stock_list: list, df_like=False, save_to='') -> dict or pd.DataFrame or None:
         '''
         [Parameters]
         ------------
@@ -55,10 +77,60 @@ class Stock:
             'stock_id'
                 'max', 'min', 'open', 'close', 'spread', 'amount', 'volume', 'volume_last'
         '''
-        res = self._request('stock/price_realtime', 0, stock_list=stock_list)
+        self._handle_path(save_to)
+        data_list = self._request('stock/price_realtime', stock_list=stock_list)['data_list']
 
-        if res['status']['code'] == 200:
-            res.pop('status', None)
-            return res
+        if df_like:
+            if not data_list:
+                return None
 
-        raise Exception(res['status']['msg'])
+            data_list = pd.DataFrame(data_list)
+            data_list[stock_list] = stock_list
+
+            if save_to:
+                data_list.to_csv(save_to)
+
+        return data_list
+
+    @staticmethod
+    def _plot_ticks_realtime(df: pd.DataFrame, save_to):
+        df = df.copy()
+
+        fig, ax1 = plt.subplots(figsize=(10, 5))
+        sns.set(style="whitegrid")
+        df['timestamp'] = pd.to_datetime(df['time'], format='%H:%M')
+
+        sns.lineplot(x='timestamp', y='amount', data=df, label='Amount', color='blue', ax=ax1)
+        ax1.set_xlabel('Time')
+        ax1.set_ylabel('Amount', color='blue')
+
+        ax2 = ax1.twinx()
+        sns.lineplot(x='timestamp', y='price', data=df, label='Price', color='red', ax=ax2)
+        ax2.set_ylabel('Price', color='red')
+
+        xformatter = mdates.DateFormatter('%H:%M')
+        xlocator = mdates.MinuteLocator(byminute=[0, 30], interval=1)
+        ax1.xaxis.set_major_locator(xlocator)
+        ax1.xaxis.set_major_formatter(xformatter)
+
+        ax1.legend(loc='best')
+        ax2.legend(loc='best')
+        plt.title('Ticks Realtime')
+        plt.tight_layout()
+
+        plt.savefig(save_to, dpi=600)
+        plt.show()
+
+    @staticmethod
+    def _handle_path(save_to: str) -> pathlib.Path:
+        path_obj = Path(save_to)
+
+        # 如果不存在則創建父資料夾路徑
+        if path_obj != '':
+            if path_obj.suffix:
+                path_obj.parent.mkdir(parents=True, exist_ok=True)
+                open(path_obj, 'w').close()
+            else:
+                path_obj.mkdir(parents=True, exist_ok=True)
+
+        return path_obj
